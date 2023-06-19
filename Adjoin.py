@@ -9,9 +9,12 @@ import tensorflow as tf
 import Data_Augmentation as da # 定制模块
 import Recoba_Tensorflow as rtf # 定制模块
 
+import os
+from PIL import Image
+
 #阅读TSV文件，并存入 NumPy binary 文件
 def Create_Data(folder, fileName):
-    result = pd.read_csv(folder + fileName, sep='\t', header=0)
+    result = pd.read_csv(folder + fileName, sep='\t', header=2)
     print("here")
     print(result)
     data_info = np.empty((result.shape[0], 4), dtype='S100') # 创建空NumPy 数组 data_info， result.shape[0] 查找 result array中行的个数.
@@ -35,6 +38,7 @@ def Prepare_Data(data_info, label_array, multi_array, folder, expand_folder, res
         qty_list.append(qty.shape[0])
     qty_array = np.array(qty_list)
     print('Classes Qty', label_array, qty_array)
+
 
     # 加载图片
     images = np.empty((labels.shape[0], 256, 256, 1), dtype='int32')
