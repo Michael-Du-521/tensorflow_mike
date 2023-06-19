@@ -68,7 +68,7 @@ def Batch_Data(folder, info_array, batch_i, class_qty, height, width, batch_size
         img = cv2.imread(folder + info[0].decode().replace('.jpg', '.png'), 0)
         data_image[i, :, :, 0] = img
         labels.append(int(info[2]))
-    # print('labels',i,labels[i])
+    print('labels',i,labels[i])
     # plt.imshow(data_image[i, :, :, 0], cmap='gray')
     # plt.show()
     batch_xs = data_image.astype('float32')
