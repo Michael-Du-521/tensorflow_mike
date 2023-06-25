@@ -85,13 +85,12 @@ def Train(expand_folder, vali_folder, train_info, vali_info, class_qty, height, 
     # 配置GPU显存
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    # with tf.Session(config=config) as sess:
 
     # 训练并测试网络模型
     with tf.Session(config=config) as sess:
-        # config.gpu_options.per_process_gpu_memory_fraction = 0.9
-        # with tf.device('/gpu:0'):
-        sess.run(tf.global_variables_initializer())
+        config.gpu_options.per_process_gpu_memory_fraction = 0.9
+        with tf.device('/gpu:0'):
+            sess.run(tf.global_variables_initializer())
         train_qty = train_info.shape[0]
         # 按Batch分批训练N次的循环
         for loop_i in range(loop_n):

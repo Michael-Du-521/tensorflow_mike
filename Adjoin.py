@@ -4,7 +4,6 @@ import cv2
 import numpy as np
 import pandas as pd
 import math
-
 import tensorflow as tf
 import Data_Augmentation as da # 定制模块
 import Recoba_Tensorflow as rtf # 定制模块
@@ -14,11 +13,13 @@ from PIL import Image
 
 #阅读TSV文件，并存入 NumPy binary 文件
 def Create_Data(folder, fileName):
-    result = pd.read_csv(folder + fileName, sep='\t', header=2)
-    print("here")
+    result = pd.read_csv(folder + fileName, sep='\t', header=2) # 表头在该csv文件的第三行
     print(result)
     data_info = np.empty((result.shape[0], 4), dtype='S100') # 创建空NumPy 数组 data_info， result.shape[0] 查找 result array中行的个数.
+    #The .shape attribute of a DataFrame returns a tuple 元组 containing the dimensions 维度 of the DataFrame
     for index, row in result.iterrows(): #通过for循环遍历result dateframe 中 的 行序号（index） 与 行数据（row）
+        # result.iterrows() returns an iterator that produces pairs of index and row,
+        # where the index represents the row index, and the row is a pandas Series object containing the data for that particular row.
         cell_info = np.array(
             ([row['FileName'], row['ClassName'], row['Label'], row['MMT_Judge']],))  # 添加逗号,后，cell_info是1行4列的数组
         data_info[index, :] = cell_info # The index 变量 代表 the row index, and : 代表该行的所有列.
@@ -31,22 +32,27 @@ def Create_Data(folder, fileName):
 def Prepare_Data(data_info, label_array, multi_array, folder, expand_folder, resize_folder):
     labels = data_info[:, 2].astype('int32') #将data_info array中的第3列提取出来，并且将它转换为整型数值。
     # 计算每个分类的数据量
-    # label_array = np.sort(np.unique(labels))  # 取数据中不重复的数据
-    qty_list = []
+    label_array = np.sort(np.unique(labels))  # 取数据中不重复的数据 It scans the array and returns a new array containing only the unique values in sorted order.
+    qty_list = [] #"qty_list" 数量列表 may stand for "quantity list"
     for i in range(len(label_array)):
-        qty = np.flatnonzero(labels == label_array[i])
-        qty_list.append(qty.shape[0])
+        qty = np.flatnonzero(labels == label_array[i]) # the expression labels == label_array[i] compares each element in the labels array with the current label_array[i] value.
+        # The result is a boolean array of the same shape as labels, where each element is True if it matches the value label_array[i], and False otherwise.
+        # np.flatnonzero() 取数组作为输入并且返回在这个数组中非零（或者true）的元素 takes an array as input and returns the indices of the non-zero (or True) elements in that array.
+        qty_list.append(qty.shape[0]) #qty.shape[0] 返回该qty内元素的数量 In this specific case, qty.shape[0] refers to the size of the first dimension (axis 0) of the qty array. Since qty is a 1-dimensional array, shape[0] gives the length or number of elements in that array.
     qty_array = np.array(qty_list)
     print('Classes Qty', label_array, qty_array)
 
 
     # 加载图片
-    images = np.empty((labels.shape[0], 256, 256, 1), dtype='int32')
+    images = np.empty((labels.shape[0], 256, 256, 1), dtype='int32') #创建一个称作image的numpy数组，（标签的数量，高以像素计，宽以像素计，单通道）
     for i, info in enumerate(data_info):
-        img = cv2.imread(folder + info[0].decode(), 0)
-        resize_image = cv2.resize(img.astype('float32'), (256, 256), cv2.INTER_LINEAR);
+        img = cv2.imread(folder + info[0].decode(), 0) #.decode（）方法用于将文件名从比特转换为字符串
+        #This line uses the OpenCV library's imread function to read an image file.
+        resize_image = cv2.resize(img.astype('float32'), (256, 256), cv2.INTER_LINEAR); #opencv method 期待输入图像是浮点数据类型的numpy数组
+        #the code converts the input image "img" to a NumPy array of the 'float32' data type using the "astype" method.
+        # This is because OpenCV's resize function expects the input image to be a NumPy array of floating point data type.
         cv2.imwrite(resize_folder + info[0].decode().replace('.jpg', '.png'), resize_image)
-        images[i, :, :, 0] = resize_image
+        images[i, :, :, 0] = resize_image # The "i" index refers to the i-th image in the dataset, and the slice "[:, :, 0]" refers to the first channel of the image.
         print('Load_Image', folder + info[0].decode())
 
     # 计算膨胀后的数据量
@@ -57,7 +63,7 @@ def Prepare_Data(data_info, label_array, multi_array, folder, expand_folder, res
     expand_qty = np.sum(expand_array)
     print(expand_qty, images.shape)
     # new_images = np.empty((expand_qty, images.shape[1], images.shape[2], images.shape[3]), dtype='int32')
-    new_data_info = np.empty((expand_qty, data_info.shape[1]), dtype='S100')
+    new_data_info = np.empty((expand_qty, data_info.shape[1]), dtype='S100') # ".shape[1]" is a Python expression that retrieves the second dimension of a NumPy array.
 
     for class_num in range(label_array.shape[0]):  # 区分3类，所以有3个分类
         # 获取某一分类的Index
@@ -176,9 +182,9 @@ def VGG_Net_layer(inputs, labels, class_qty, is_training):
 
 
 # 定义训练必要的参数
-expand_folder = "D:/AI_Sample_06152023/Adjoin/Expand/"
-folder = "D:/AI_Sample_06152023/Adjoin/"
-resize_folder = 'D:/AI_Sample_06152023/Adjoin/Resize/'
+expand_folder = "D:/AI_Sample_for_original_06222023/Adjoin/Expand/" #在这里修改目录
+folder = "D:/AI_Sample_for_original_06222023/Adjoin/" #在这里修改目录
+resize_folder = 'D:/AI_Sample_for_original_06222023/Adjoin/Resize/' #在这里修改目录
 fileName = 'Result.txt'
 pb_fileName = 'Adjoin_Model'
 multi_array = [5, 5, 20]
@@ -188,40 +194,42 @@ class_qty = len(classes)
 channels = 1
 height = 256
 width = 256
-batch_size = 32  # 批处理数量
-loop_n = 20  # 训练次数
+#batch_size = 32  # recoba批处理数量
+batch_size = 4 # 批处理数量
+#loop_n = 20  # recoba 训练次数
+loop_n = 10  # miguel 训练次数
 
-test_info = Create_Data(folder, fileName)
-expand_train_info = Prepare_Data(test_info, label_array, multi_array, folder, expand_folder, resize_folder)
-np.save(folder + "expand_train_info.npy", expand_train_info)
+# test_info = Create_Data(folder, fileName)
+# expand_train_info = Prepare_Data(test_info, label_array, multi_array, folder, expand_folder, resize_folder)
+# np.save(folder + "expand_train_info.npy", expand_train_info)
 
 # 加载扩增后的数据
 expand_train_info = np.load(folder + "expand_train_info.npy")
 test_info = np.load(folder + "Data_Info.npy")
 
-# # 创建输入样本和标签的占位符
-# inputs = tf.placeholder(tf.float32, [None, height, width, channels], name='inputs')
-# labels = tf.placeholder(tf.float32, [None, class_qty], name='labels')
-# is_training = tf.placeholder(tf.bool, name='is_training')
-# # 构建神经网络
-# train_opt, model_loss, correct_prediction, softmax_tensor = VGG_Net_layer(inputs, labels, class_qty, is_training)
-# # 进行训练、验证和测试
-# vali_softmax = rtf.Train(expand_folder, resize_folder, expand_train_info, test_info, class_qty, height, width, train_opt, model_loss,
-#                          correct_prediction, softmax_tensor,
-#                          inputs, labels, is_training, batch_size=batch_size, loop_n=loop_n,
-#                          pb_file_folder=folder + pb_fileName)
-#
-# rtf.Show_Result(test_info, vali_softmax, classes)
+# 创建输入样本和标签的占位符
+inputs = tf.placeholder(tf.float32, [None, height, width, channels], name='inputs')
+labels = tf.placeholder(tf.float32, [None, class_qty], name='labels')
+is_training = tf.placeholder(tf.bool, name='is_training')
+# 构建神经网络
+train_opt, model_loss, correct_prediction, softmax_tensor = VGG_Net_layer(inputs, labels, class_qty, is_training)
+# 进行训练、验证和测试
+vali_softmax = rtf.Train(expand_folder, resize_folder, expand_train_info, test_info, class_qty, height, width, train_opt, model_loss,
+                         correct_prediction, softmax_tensor,
+                         inputs, labels, is_training, batch_size=batch_size, loop_n=loop_n,
+                         pb_file_folder=folder + pb_fileName)
+
+rtf.Show_Result(test_info, vali_softmax, classes)
 
 # 使用pb文件进行预测
 
 #Recoba原语句:
 # vali_softmax = rtf.Load_Model_Predict(resize_folder, test_info, class_qty, height, width, batch_size=batch_size, predict_name='Load Model Predict',
-#                                       pb_file_path=folder + "Adjoin_Model_13_0.9858446052217679.pb")
+#                                    pb_file_path=folder + "Adjoin_Model_13_0.9858446052217679.pb")
 
 # Migule修改语句:
-vali_softmax = rtf.Load_Model_Predict(resize_folder, test_info, class_qty, height, width, batch_size=batch_size, predict_name='Load Model Predict',
-                                      pb_file_path=folder + "230422 Adjoin_Model.pb")
+# vali_softmax = rtf.Load_Model_Predict(resize_folder, test_info, class_qty, height, width, batch_size=batch_size, predict_name='Load Model Predict',
+#                                       pb_file_path=folder + "230422_Adjoin_Model.pb")
 
-rtf.Show_Result(test_info, vali_softmax, classes)
-rtf.Save_Predict_Txt(folder + "Predict.txt", test_info, vali_softmax)
+# rtf.Show_Result(test_info, vali_softmax, classes)
+# rtf.Save_Predict_Txt(folder + "Predict.txt", test_info, vali_softmax)
