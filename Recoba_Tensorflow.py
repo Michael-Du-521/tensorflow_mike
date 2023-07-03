@@ -21,8 +21,8 @@ def fully_connected(prev_layer, num_units, is_training, use_bias=False):
     :returns Tensor
         一个新的全连接神经网络层
     """
-    layer = tf.layers.dense(prev_layer, num_units, use_bias=use_bias, activation=None)
-    layer = tf.layers.batch_normalization(layer, training=is_training)
+    layer = tf.keras.layers.Dense(num_units, use_bias=use_bias, activation=None)(prev_layer)
+    layer = tf.keras.layers.BatchNormalization()(layer, training=is_training)
     layer = tf.nn.relu(layer)
     return layer
 
@@ -40,11 +40,18 @@ def conv_layer(prev_layer, filters, is_training, kernel_size=[3, 3], strides=1, 
     :returns Tensor
         一个新的卷积层
     """
-    conv_layer = tf.layers.conv2d(prev_layer, filters, kernel_size, strides, padding, use_bias=False, activation=None)
-    conv_layer = tf.layers.batch_normalization(conv_layer, training=is_training)
-    conv_layer = tf.nn.relu(conv_layer)
-    return conv_layer
+    conv_layer = tf.keras.layers.Conv2D(filters, kernel_size, strides=strides, padding=padding, use_bias=False,
+                                        activation=None)
+    bn_layer = tf.keras.layers.BatchNormalization()
+    relu_layer = tf.keras.layers.ReLU()
 
+    def layer(prev_layer):
+        conv_out = conv_layer(prev_layer)
+        bn_out = bn_layer(conv_out, training=is_training)
+        relu_out = relu_layer(bn_out)
+        return relu_out
+
+    return layer
 
 def convert_to_one_hot(y, class_qty):
     return np.eye(class_qty)[y]

@@ -5,8 +5,10 @@ import numpy as np
 import pandas as pd
 import math
 import tensorflow as tf
+import tensorflow .keras
 import Data_Augmentation as da # 定制模块
 import Recoba_Tensorflow as rtf # 定制模块
+import tensorflow.keras.optimizers
 
 import os
 from PIL import Image
@@ -121,63 +123,64 @@ def VGG_Net_layer(inputs, labels, class_qty, is_training):
     learning_rate = 5e-5
     layer = inputs
     print(layer.shape)
+    print(type(layer))
 
     layer = rtf.conv_layer(layer, 64, is_training)
     layer = rtf.conv_layer(layer, 64, is_training)
-    layer = tf.layers.max_pooling2d(layer, pool_size=[2, 2], strides=2)
+    layer = tf.keras.layers.MaxPooling2D(pool_size=[2, 2], strides=2)(layer)
     print(layer.shape)
 
     layer = rtf.conv_layer(layer, 128, is_training)
     layer = rtf.conv_layer(layer, 128, is_training, strides=2)
     layer = rtf.conv_layer(layer, 128, is_training)
-    layer = tf.layers.max_pooling2d(layer, pool_size=[2, 2], strides=2)
+    layer = tf.keras.layers.MaxPooling2D(pool_size=[2, 2], strides=2)(layer)
     print(layer.shape)
 
     layer = rtf.conv_layer(layer, 256, is_training)
     layer = rtf.conv_layer(layer, 256, is_training, strides=2)
     layer = rtf.conv_layer(layer, 256, is_training)
     layer = rtf.conv_layer(layer, 256, is_training, strides=2)
-    # layer = tf.layers.max_pooling2d(layer, pool_size=[2, 2], strides=2)
+
     print(layer.shape)  # 本例中64,64,128,128,256,256,256,256的训练效果最好
 
-    # layer = rtf.conv_layer(layer, 512, is_training)
-    # layer = rtf.conv_layer(layer, 512, is_training)
-    # layer = rtf.conv_layer(layer, 512, is_training)
-    # layer = rtf.conv_layer(layer, 512, is_training)
-    # layer = tf.layers.max_pooling2d(layer, pool_size=[2, 2], strides=2)
-    # print(layer.shape)
-    #
-    #     layer = rtf.conv_layer(layer, 512, is_training)
-    #     layer = rtf.conv_layer(layer, 512, is_training)
-    #     layer = rtf.conv_layer(layer, 512, is_training)
-    #     layer = rtf.conv_layer(layer, 512, is_training)
-    #     layer = tf.layers.max_pooling2d(layer, pool_size=[2, 2], strides=2)
-    #     print(layer.shape)
 
     # 将卷积层输出扁平化处理
     orig_shape = layer.get_shape().as_list()
     layer = tf.reshape(layer, shape=[-1, orig_shape[1] * orig_shape[2] * orig_shape[3]])
+
     # 添加全连接层
     layer = rtf.fully_connected(layer, 256, is_training)
-    layer = tf.layers.dropout(layer, rate=0.5, training=is_training)
+    layer = tf.keras.layers.Dropout(rate=0.5)(layer, training=is_training)
     layer = rtf.fully_connected(layer, 128, is_training)
-    layer = tf.layers.dropout(layer, rate=0.5, training=is_training)
+    layer = tf.keras.layers.Dropout(rate=0.5)(layer, training=is_training)
     layer = rtf.fully_connected(layer, 64, is_training)
+
     # 为每一个类别添加一个输出节点
     # logit本身就是是一种函数，它把某个概率p从[0,1]映射到[-inf,+inf]（即正负无穷区间）。这个函数的形式化描述为：logit=ln(p/(1-p))。
     # 我们可以把logist理解为原生态的、未经缩放的，可视为一种未归一化的log 概率，如是[4, 1, -2]
-    logits = tf.layers.dense(layer, class_qty)
+    logits = tf.keras.layers.Dense(class_qty)(layer)
     # 定义loss 函数和训练操作
     # Softmax的工作则是，它把一个系列数从[-inf, +inf] 映射到[0,1]。
     # 除此之外，它还把所有参与映射的值累计之和等于1，变成诸如[0.95, 0.05, 0]的概率向量。
-    model_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=labels),
-                                name='model_loss')
+
+
     correct_prediction = tf.equal(tf.argmax(logits, 1), tf.argmax(labels, 1), name='correct_prediction')
     softmax_tensor = tf.nn.softmax(logits, name='softmax_tensor')
     # 通知Tensorflow在训练时要更新均值和方差的分布
-    with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-        train_opt = tf.train.AdamOptimizer(learning_rate).minimize(model_loss)  # , epsilon=0.1
-    # accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+    optimizer = tf.keras.optimizers.Adam(learning_rate)
+    # Use a gradient tape to compute the gradients
+    with tf.GradientTape() as tape:
+        # Get the TensorFlow tensor from the KerasTensor object
+        inputs_tensor = tf.convert_to_tensor(inputs)
+        # Compute the loss
+        model_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels),name='model_loss')
+        # Convert the KerasTensor objects to TensorFlow tensors
+        trainable_vars = [tf.convert_to_tensor(v) for v in tf.compat.v1.trainable_variables()]
+        # Compute the gradients using the gradient tape
+        grads = tape.gradient(model_loss, trainable_vars)
+        # Use the gradients to update the trainable variables
+        train_opt = optimizer.apply_gradients(zip(grads, trainable_vars))
+
     return train_opt, model_loss, correct_prediction, softmax_tensor
 
 
@@ -207,10 +210,10 @@ loop_n = 10  # miguel 训练次数
 expand_train_info = np.load(folder + "expand_train_info.npy")
 test_info = np.load(folder + "Data_Info.npy")
 
-# 创建输入样本和标签的占位符
-inputs = tf.placeholder(tf.float32, [None, height, width, channels], name='inputs')
-labels = tf.placeholder(tf.float32, [None, class_qty], name='labels')
-is_training = tf.placeholder(tf.bool, name='is_training')
+# 创建输入样本和标签的占位符 using tf.keras.Input
+inputs = tf.keras.Input(shape=(height, width, channels), dtype=tf.float32, name='inputs')
+labels = tf.keras.Input(shape=(class_qty,), dtype=tf.float32, name='labels')
+is_training = tf.keras.Input(shape=(), dtype=tf.bool, name='is_training')
 # 构建神经网络
 train_opt, model_loss, correct_prediction, softmax_tensor = VGG_Net_layer(inputs, labels, class_qty, is_training)
 # 进行训练、验证和测试
